@@ -48,7 +48,7 @@ public:
 			auto last = _cache_items_list.end();
 			last--;
 
-			cout << "key = " << last->first << "  value = " << last->second << endl;
+//			cout << "key = " << last->first << "  value = " << last->second << endl;
 			v = last->second;
 			_cache_items_map.erase(last->first);
 			_cache_items_list.pop_back();
