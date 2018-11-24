@@ -38,7 +38,7 @@ public:
 	void init();					//用于初始化文件中已经存在了的b+树
 	void createIndex();				//发布create index后用于初始化b+树
 	void put(key k, value v);
-	value get(key k);				//应该是undigned long int的，但是因为找不到的时候返回-1，索引只能是有符号的整数了
+	value get(key k);				//应该是unsigned long int的，但是因为找不到的时候返回-1，索引只能是有符号的整数了
 									//后期可改为抛出异常进行处理
 	void remove(key k, value v);
 public:
@@ -285,6 +285,7 @@ void BPlusTree<key, value>::remove(key k, value v) {
 		leafNode->delData(k, v);
 	} catch (exception & e) {
 		//KeyNotFoundException
+		cout << "KeyNotFoundException:key " << k << "not found" << endl;
 		return;
 	}
 	int minLeafData = (int)((treeNodeMaxSize - 1)*1.0 / 2 + 0.5);	//向上取整 等价于ceil((treeNodeMaxSize-1))/2
@@ -748,7 +749,7 @@ TreeNode<key, value> * BPlusTree<key, value>::getRightNode(TreeNode<key, value> 
 }
 template<typename key, typename value>
 void BPlusTree<key, value>::split(TreeNode<key, value> * leafNode) {
-	cout << "BPlusTree::split()" << endl;
+//	cout << "BPlusTree::split()" << endl;
 	unsigned long int self = totalBlock;
 	totalBlock++;
 	TreeNode<key, value> * rightNode = new TreeNode<key, value>(keyLen, valueLen, self, 1, indexFileName);
@@ -763,22 +764,19 @@ void BPlusTree<key, value>::split(TreeNode<key, value> * leafNode) {
 	if (t) {
 		delete t;
 	}
-	cout << "BPlusTree::split() 1" << endl;
+//	cout << "BPlusTree::split() 1" << endl;
 
 	//找分裂后左边结点的父结点,通过该结点的第一个关键词以及自身的块号（id）
-	cout << "BPlusTree::split() leafNode->key(0) = " << leafNode->getKey(0);
-	cout << "  leafNode->self = " << leafNode->getSelf() << endl;
+//	cout << "BPlusTree::split() leafNode->key(0) = " << leafNode->getKey(0);
+//	cout << "  leafNode->self = " << leafNode->getSelf() << endl;
 	TreeNode<key, value> * parentNode = getParent(leafNode->getKey(0), leafNode->getSelf());
-	cout << "BPlusTree::split() 2" << endl;
+//	cout << "BPlusTree::split() 2" << endl;
 	if (parentNode->getSelf() == leafNode->getSelf()) {		//就一个根结点，即根结点也为叶结点
-		cout << "BPlusTree::split() 3" << endl;
 		rootNode = new TreeNode<key, value>(keyLen, valueLen, totalBlock, 0, indexFileName);
 		//rootNode->addData(p.first, p.second);
 		rootNode->addFirstInnerData(leafNode->getSelf(), p.first, p.second);
 
-		cout << "BPlusTree::split() rootNode self = " << rootNode->getSelf() << endl;
-
-//		rootNode->printTreeNode();
+//		cout << "BPlusTree::split() rootNode self = " << rootNode->getSelf() << endl;
 
 		t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(rootNode->getSelf(), rootNode);
 		if (t) {
@@ -790,11 +788,8 @@ void BPlusTree<key, value>::split(TreeNode<key, value> * leafNode) {
 		rootNode->writeBack();							//把跟结点写回磁盘
 		return;
 	}
-	cout << "BPlusTree::split() 4" << endl;
 	//根结点为内节点
 	parentNode->addInnerData(p.first, p.second);
-	cout << "BPlusTree::split() middle" << endl;
-
 
 	while (parentNode->getCount() >= treeNodeMaxSize) {
 		cout << "BPlusTree::split() 非叶结点分裂" << endl;
@@ -811,10 +806,13 @@ void BPlusTree<key, value>::split(TreeNode<key, value> * leafNode) {
 			rootNode = new TreeNode<key, value>(keyLen, valueLen, totalBlock, 0, indexFileName);
 			totalBlock++;
 			rootNode->addFirstInnerData(parentNode->getSelf(), pp.first, pp.second);
+//			cout << "BPlusTree::split() pair.first = " << pp.first << "  pair.second = " << pp.second << endl;
+//			cout << "BPlusTree::split() rootNode->value(0) = " << rootNode->getValue(0);
+//			cout << "  rootNode->value(1) = " << rootNode->getValue(1) << endl;
 			root = rootNode->getSelf();
-			cout << "parentNode->self = " << parentNode->getSelf();
-			cout << " rightNode->self = " << rightInnerNode->getSelf();
-			cout << " rootNode ->self = " << rootNode->getSelf() << endl;
+//			cout << "parentNode->self = " << parentNode->getSelf();
+//			cout << " rightNode->self = " << rightInnerNode->getSelf();
+//			cout << " rootNode ->self = " << rootNode->getSelf() << endl;
 			t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
 					->put(parentNode->getSelf(), parentNode);
 			if (t) {
@@ -846,9 +844,10 @@ void BPlusTree<key, value>::split(TreeNode<key, value> * leafNode) {
 			TreeNode<key, value> * rightInnerNode =
 					new TreeNode<key, value>(keyLen, valueLen, self, 0, indexFileName);
 			pair<key, value> inner = parentNode->splitInnerData(rightInnerNode);
-//			cout << "parentNode data:" << endl;
+//			cout << "BPlusTree::split() inner.first = " << inner.first << "inner.second = " <<  inner.second << endl;
+//			cout << "1).parentNode data:" << endl;
 //			parentNode->printTreeNode();
-//			cout << "rightInnerNode data:" << endl;
+//			cout << "2).rightInnerNode data:" << endl;
 //			rightInnerNode->printTreeNode();
 
 			//---------放入LRU缓冲区中---------
@@ -864,19 +863,19 @@ void BPlusTree<key, value>::split(TreeNode<key, value> * leafNode) {
 			}
 
 			parentNode = getParent(parentNode->getKey(0), parentNode->getSelf());
-			cout << "before add data : " << endl;
-			parentNode->printTreeNode();
+//			cout << "before add data : " << endl;
+//			parentNode->printTreeNode();
 			parentNode->addInnerData(inner.first, inner.second);
-			cout << "2. parenNode->self = " << parentNode->getSelf() << endl;
-			parentNode->printTreeNode();
+//			cout << "2. parenNode->self = " << parentNode->getSelf() << endl;
+//			parentNode->printTreeNode();
 		}
 	}
-	cout << "BPlusTree::split() end" << endl;
+//	cout << "BPlusTree::split() end" << endl;
 }
 
 template<typename key, typename value>
 TreeNode<key, value> * BPlusTree<key, value>::getParent(key k, value childId) {
-	cout << "BPlusTree::getParent() 1" << endl;
+//	cout << "BPlusTree::getParent() 1" << endl;
 	rootNode = getRootNode();
 	if (rootNode->getSelf() == childId) {	//只有根结点
 		cout << "BPlusTree::getParent() only root node" << endl;
@@ -887,11 +886,17 @@ TreeNode<key, value> * BPlusTree<key, value>::getParent(key k, value childId) {
 		throw FileNotFoundException(indexFileName);
 	}
 	TreeNode<key, value> * node = rootNode;
+//	cout << "BPlusTree:getParent() rootNode->value(0) = " << rootNode->getValue(0);
+//	cout << "  rootNode->value(1) = " << rootNode->getValue(1) << endl;
+//	cout << "rootNode->value(2) = " << rootNode->getValue(2) << endl;
+//	cout << "BPlusTree::getParent() rootNode data:" << endl;
+//	rootNode->printTreeNode();
 	TreeNode<key, value> * childNode = nullptr;
 	unsigned long int nextAddr = node->getNextChild(k);
-	cout << "BPlusTree::getParent() 2" << endl;
+//	cout << "BPlusTree::getParent() 2 first nextAddr = " << nextAddr << endl;
 	while (nextAddr != childId) {
-//		cout << "BPlusTree::getParent() 3 nextAddr = " << nextAddr << "childId = " << childId << endl;
+//		cout << "BPlusTree::getParent() 3 nextAddr = " << nextAddr << " childId = " << childId << endl;
+//		node->printTreeNode();
 		try {
 			childNode = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->get(nextAddr);
 		} catch (exception & e) {
@@ -902,7 +907,8 @@ TreeNode<key, value> * BPlusTree<key, value>::getParent(key k, value childId) {
 			childNode = new TreeNode<key, value>(child, keyLen, valueLen,indexFileName);
 			free(child);
 			//放入LRU缓冲区
-			TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(nextAddr, childNode);
+			TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
+					->put(childNode->getSelf(), childNode);
 			if (t) {
 				delete t;
 			}
@@ -910,7 +916,8 @@ TreeNode<key, value> * BPlusTree<key, value>::getParent(key k, value childId) {
 		node = childNode;
 		nextAddr = node->getNextChild(k);
 	}
-	cout << "BPlusTree::getParent() 4" << endl;
+	fclose(indexFile);
+//	cout << "BPlusTree::getParent() getParent end================================================" << endl;
 	return node;
 }
 
@@ -1021,6 +1028,8 @@ void BPlusTree<key, value>::printTree() {
 			free(block);
 		}
 	}
+	cout << "leafNode data:" << endl;
+	cout << "leafNode->self = " << node->getSelf() << endl;
 	node->printTreeNode();
 	while (node->getNext() != -1) {
 		unsigned long int nextAddr = node->getNext();
@@ -1037,6 +1046,7 @@ void BPlusTree<key, value>::printTree() {
 			}
 			free(block);
 		}
+		cout << "leafNode->self = " << node->getSelf() << endl;
 		node->printTreeNode();
 	}
 	fclose(indexFile);
@@ -1614,6 +1624,7 @@ pair<key, value> TreeNode<key, value>::splitInnerData(TreeNode<key, value> * rig
 	char * leftData = data + valueLen + len*leftCount + keyLen;
 	memcpy(rightData, leftData, valueLen);
 	leftData += valueLen;
+	rightData += valueLen;
 	memcpy(rightData, leftData, len*(count-leftCount-1));
 
 	right->setCount(count-leftCount-1);
