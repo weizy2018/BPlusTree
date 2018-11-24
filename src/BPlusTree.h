@@ -284,8 +284,7 @@ void BPlusTree<key, value>::remove(key k, value v) {
 	try {
 		leafNode->delData(k, v);
 	} catch (exception & e) {
-		//KeyNotFoundException
-		cout << "KeyNotFoundException:key " << k << "not found" << endl;
+		cout << "KeyNotFoundException:key " << k << " not found !" << endl;
 		return;
 	}
 	int minLeafData = (int)((treeNodeMaxSize - 1)*1.0 / 2 + 0.5);	//向上取整 等价于ceil((treeNodeMaxSize-1))/2
@@ -296,12 +295,13 @@ void BPlusTree<key, value>::remove(key k, value v) {
 
 template<typename key, typename value>
 void BPlusTree<key, value>::handleDel(TreeNode<key, value> * leafNode) {
+	cout << "BPlusTree::handleDel()" << endl;
 	rootNode = getRootNode();
 	if (leafNode->getSelf() == rootNode->getSelf()) {	//只有根结点，就算再少也不作处理了
 		return;
 	}
 	int minLeafData = (int)((treeNodeMaxSize - 1)*1.0 / 2 + 0.5);
-	int minInnerData = (int)(treeNodeMaxSize*1.0 / 2 + 0.5);
+//	int minInnerData = (int)(treeNodeMaxSize*1.0 / 2 + 0.5);
 	//父结点
 	TreeNode<key, value> * parent = this->getParent(leafNode->getKey(0), leafNode->getSelf());
 	if (parent->getSelf() == leafNode->getSelf()) {		//只有一个结点
@@ -312,16 +312,26 @@ void BPlusTree<key, value>::handleDel(TreeNode<key, value> * leafNode) {
 	//leafNode的右兄弟结点
 	TreeNode<key, value> * rightNode = getRightNode(leafNode, parent);
 
+//	if (leftNode != nullptr) {
+//		cout << "BPlusTree::handleDel() leftNode data :" << endl;
+//		leftNode->printTreeNode();
+//	}
+//	if (rightNode != nullptr) {
+//		cout << "BPlusTree::handleDel() rightNode data:" << endl;
+//		rightNode->printTreeNode();
+//	}
 
 	if (leftNode != nullptr && leftNode->getCount() > minLeafData) {	//先看能否向左借
 		borrowLeft(leftNode, leafNode, parent);
 
 	} else if (rightNode != nullptr && rightNode->getCount() > minLeafData) {	//是否能向右借
-		borrowRight(right, leafNode, parent);
+		borrowRight(rightNode, leafNode, parent);
+
 	} else if(leftNode != nullptr) {	//左右都不能借了，如果左边不为空，向左边合并
+		cout << "BPlusTree::handleDel() mergeLeft" << endl;
 		mergeLeft(leftNode, leafNode, parent);
 	} else {	//只能向右边合并
-		//TreeNode<key, value> * rightNode, TreeNode<key, value> * leafNode, TreeNode<key, value> * parent
+		cout << "BPlusTree::handleDel() mergeRight" << endl;
 		mergeRight(rightNode, leafNode, parent);
 	}
 }
@@ -331,7 +341,7 @@ void BPlusTree<key, value>::handleDel(TreeNode<key, value> * leafNode) {
 template<typename key, typename value>
 void BPlusTree<key, value>::mergeLeft(TreeNode<key, value> * leftNode, TreeNode<key, value> * leafNode, TreeNode<key, value> * parent) {
 	//1. 把父结点value为leafNode->self()的项删除
-	parent->delInnerData(leafNode->self());
+	parent->delInnerData(leafNode->getSelf());
 
 	//2. 合并结点 将leafNode合并到leftNode中
 	leftNode->addRightNodeData(leafNode);
@@ -342,7 +352,7 @@ void BPlusTree<key, value>::mergeLeft(TreeNode<key, value> * leftNode, TreeNode<
 		TreeNode<key, value> * lastNodeParent = this->getParent(lastNode->getKey(0), lastNode->getSelf());
 		char * leafNodeData = leafNode->getData();
 		char * lastNodeData = lastNode->getData();
-		int lastNodeCount = lastNode->getCount();
+//		unsigned int lastNodeCount = lastNode->getCount();
 
 		memcpy(leafNodeData, lastNodeData, TREE_NODE_DATA_SIZE);
 		leafNode->setChange(true);
@@ -383,7 +393,7 @@ void BPlusTree<key, value>::mergeLeft(TreeNode<key, value> * leftNode, TreeNode<
 					parent->setChange(true);
 					char * d0 = parent->getData();
 					char * d1 = lastNode->getData();
-					int count = lastNode->getCount();
+//					unsigned int count = lastNode->getCount();
 					memcpy(d0, d1, TREE_NODE_DATA_SIZE);
 					TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(parent->getSelf(), parent);
 					if (t) {
@@ -461,9 +471,8 @@ template<typename key, typename value>
 void BPlusTree<key, value>::mergeRight(TreeNode<key, value> * rightNode, TreeNode<key, value> * leafNode, TreeNode<key, value> * parent) {
 	//0. 需要找到leafNode的左兄弟结点
 	TreeNode<key, value> * leftLeftNode = getLeftNodeAll(leafNode, parent);
-
 	//1. 把父结点value为leafNode->self()的项删除
-	parent->delInnerData(leafNode->self());
+	parent->delInnerData(leafNode->getSelf());
 
 	//2. 合并结点 将leafNode合并到leftNode中
 	rightNode->addLeftNodeData(leafNode, leftLeftNode);
@@ -474,7 +483,7 @@ void BPlusTree<key, value>::mergeRight(TreeNode<key, value> * rightNode, TreeNod
 		TreeNode<key, value> * lastNodeParent = this->getParent(lastNode->getKey(0), lastNode->getSelf());
 		char * leafNodeData = leafNode->getData();
 		char * lastNodeData = lastNode->getData();
-		int lastNodeCount = lastNode->getCount();
+//		unsigned int lastNodeCount = lastNode->getCount();
 
 		memcpy(leafNodeData, lastNodeData, TREE_NODE_DATA_SIZE);
 		leafNode->setChange(true);
@@ -538,7 +547,7 @@ void BPlusTree<key, value>::mergeRight(TreeNode<key, value> * rightNode, TreeNod
 			parent = this->getParent(parent->getKey(0), parent->getSelf());
 
 			TreeNode<key, value> * leftNode = getLeftNode(node, parent);
-			rightNode = getRigthNode(node, parent);
+			rightNode = getRightNode(node, parent);
 			if (leftNode != nullptr && leftNode->getCount() > minInnerCount) {
 				//从左边借一项
 				this->borrowLeft(leftNode, node, parent);
@@ -615,6 +624,7 @@ TreeNode<key, value> * BPlusTree<key, value>::getLastTreeNode(unsigned long int 
 
 template<typename key, typename value>
 void BPlusTree<key, value>::borrowLeft(TreeNode<key, value> * leftNode, TreeNode<key, value> * node, TreeNode<key, value> * parent){
+	cout << "BPlusTree::borrowLeft()" << endl;
 	//node整体右窜一位,并将leftNode中的数据的最后一项加到node中
 	node->moveRight(leftNode);
 	//修改parent中的索引
@@ -630,8 +640,13 @@ void BPlusTree<key, value>::borrowRight(TreeNode<key, value> * rightNode, TreeNo
 	//修改parent中的索引
 	//1. 获取右边结点的第一项的索引
 	key k = rightNode->getKey(0);
+	cout << "BPlusTree::borrowRight() parent data before update :" << endl;
+	parent->printTreeNode();
 	//2. 将父结点value值为rightNode->self(0的项的索引置为k
 	parent->updataKey(k, rightNode->getSelf());
+
+	cout << "BPlusTree::borrowRight() parent data after update :" << endl;
+	parent->printTreeNode();
 }
 /**
  * 获取可以不具有同一个父结点的做兄弟结点
@@ -654,7 +669,7 @@ TreeNode<key, value> * BPlusTree<key, value>::getLeftNodeAll(TreeNode<key, value
 			char * block = (char*)malloc(BLOCK_SIZE);
 			fseek(indexFile, addr*BLOCK_SIZE + OFFSET_LENGTH, SEEK_SET);
 			fread(block, BLOCK_SIZE, 1, indexFile);
-			leftNode = new TreeNode<key, value>(block, valueLen, indexFileName);
+			leftNode = new TreeNode<key, value>(block, keyLen, valueLen, indexFileName);
 			free(block);
 			TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(addr, leftNode);
 			if (t){
@@ -670,14 +685,11 @@ TreeNode<key, value> * BPlusTree<key, value>::getLeftNodeAll(TreeNode<key, value
  */
 template<typename key, typename value>
 TreeNode<key, value> * BPlusTree<key, value>::getLeftNode(TreeNode<key, value> * node, TreeNode<key, value> * parent) {
-//	if (parent->getSelf() == rootNode->getSelf()) {		//只有一个叶结点，也是根结点
-//		return nullptr;
-//	}
 	if (parent->getValue(0) == node->getSelf()) {						//node没有左兄弟结点
 		return nullptr;
 	}
 	unsigned long int leftNodeAddr;
-	for (int index = 0; index < parent->getCount(); index++) {
+	for (int index = 0; index <= parent->getCount(); index++) {
 		value vv = parent->getValue(index);
 		if (vv == node->getSelf()) {
 			leftNodeAddr = parent->getValue(index-1);
@@ -696,7 +708,7 @@ TreeNode<key, value> * BPlusTree<key, value>::getLeftNode(TreeNode<key, value> *
 		char * block = (char*)malloc(BLOCK_SIZE);
 		fseek(indexFile, leftNodeAddr*BLOCK_SIZE + OFFSET_LENGTH, SEEK_SET);
 		fread(block, BLOCK_SIZE, 1, indexFile);
-		leftNode = new TreeNode<key, value>(block, valueLen, indexFileName);
+		leftNode = new TreeNode<key, value>(block, keyLen, valueLen, indexFileName);
 		free(block);
 
 		TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(leftNodeAddr, leftNode);
@@ -736,15 +748,16 @@ TreeNode<key, value> * BPlusTree<key, value>::getRightNode(TreeNode<key, value> 
 		char * block = (char*) malloc(BLOCK_SIZE);
 		fseek(indexFile, rightNodeAddr * BLOCK_SIZE + OFFSET_LENGTH, SEEK_SET);
 		fread(block, BLOCK_SIZE, 1, indexFile);
-		rightNode = new TreeNode<key, value>(block, valueLen, indexFileName);
+		//const char * block, int keyLen, int valueLen, const char * indexFileName
+		rightNode = new TreeNode<key, value>(block, keyLen, valueLen, indexFileName);
 		free(block);
 
 		TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(rightNodeAddr, rightNode);
 		if (t) {
 			delete t;
 		}
-		fclose(indexFile);
 	}
+	fclose(indexFile);
 	return rightNode;
 }
 template<typename key, typename value>
@@ -1155,9 +1168,9 @@ void TreeNode<key, value>::addData(key k, value v) {
  */
 template<typename key, typename value>
 void TreeNode<key, value>::delData(key k, value v) {
-	char * d = data;
-	int index = 0;
-	while(index<count && getKey(index) != k) {
+//	char * d = data;
+	unsigned int index = 0;
+	while(index < count && getKey(index) != k) {
 		index++;
 	}
 	//没找到
@@ -1170,22 +1183,23 @@ void TreeNode<key, value>::delData(key k, value v) {
 	} else {
 		char * d0 = data + len*index;
 		char * d1 = d0 + len;
-		for (int i = index; i < count; i++) {
+		for (unsigned int i = index; i < count - 1; i++) {
 			memmove(d0, d1, len);
 			d0 += len;
 			d1 += len;
 		}
+		count--;
 	}
 	change = true;
 }
 /**
- * 将value为v的项删除（外结点）
+ * 将value为v的项删除（内结点）
  */
 template<typename key, typename value>
 key TreeNode<key, value>::delInnerData(value v) {
-	char * d = data;
+//	char * d = data;
 	int len = keyLen + valueLen;
-	int index = 0;
+	unsigned int index = 0;
 	while (index <= count && getValue(index) != v) {
 		index++;
 	}
@@ -1220,7 +1234,7 @@ key TreeNode<key, value>::delInnerData(value v) {
 		memcpy((char*)&k, kk, keyLen);
 	}
 	//移动
-	for (int i = index; i < count; i++) {
+	for (unsigned int i = index; i < count; i++) {
 		memmove(d0, d1, len);
 		d0 += len;
 		d1 += len;
@@ -1330,7 +1344,7 @@ void TreeNode<key,value>::addLeftNodeData(TreeNode<key, value> * leftNode, TreeN
 	char * d0 = data + len*(count - 1);
 	char * d1 = d0 + len*leftCount;
 	//自身右移
-	for (int i = 0; i < count; i++) {
+	for (unsigned int i = 0; i < count; i++) {
 		memmove(d1, d0, len);
 		d0 -= len;
 		d1 -= len;
@@ -1360,12 +1374,12 @@ void TreeNode<key,value>::addRightNodeData_Inner(TreeNode<key, value> * rightNod
 	string str = typeid(string).name();
 	if (typeid(key).name() == str) {
 		char * p = (char*)malloc(keyLen);
-		char * s = k.c_str();
+		const char * s = k.c_str();
 		memcpy(p, s, k.size());
 		p[k.size()] = '\0';
 		memcpy(left, p, keyLen);
 		free(p);
-		free(s);
+//		free(s);
 	} else {
 		memcpy(left, (char*)&k, keyLen);
 	}
@@ -1386,7 +1400,7 @@ void TreeNode<key,value>::addLeftNodeData_Inner(TreeNode<key, value> * leftNode,
 	//数据先右移 右移leftCount+1个
 	char * d0 = data + len*(count - 1);
 	char * d1 = d0 + len*(leftCount + 1);
-	for (int i = 0; i < count; i++) {
+	for (unsigned int i = 0; i < count; i++) {
 		memmove(d1, d0, len);
 		d0 -= len;
 		d1 -= len;
@@ -1400,12 +1414,12 @@ void TreeNode<key,value>::addLeftNodeData_Inner(TreeNode<key, value> * leftNode,
 	string str = typeid(string).name();
 	if (typeid(key).name() == str) {
 		char * p = (char*)malloc(keyLen);
-		char * s = k.c_str();
+		const char * s = k.c_str();
 		memcpy(p, s, k.size());
 		p[k.size()] = '\0';
 		memcpy(d0, p, keyLen);
 		free(p);
-		free(s);
+//		free(s);
 	} else {
 		memcpy(d0, (char*)&k, keyLen);
 	}
@@ -1641,10 +1655,10 @@ pair<key, value> TreeNode<key, value>::splitInnerData(TreeNode<key, value> * rig
 template<typename key, typename value>
 void TreeNode<key, value>::moveRight(TreeNode<key, value> * leftNode) {
 	int len = keyLen + valueLen;
-	char * d1 = data + len*(count + 1);		//如果是内节点的话需要移动count+1项，不是的话都行
+	char * d1 = data + len*(count + 1);		//如果是内节点的话需要移动count+1项，不是的话都行,不却它这一项
 	char * d0 = d1 - len;
 	//d0 >>> d1
-	for (int i = 0; i <= count; i++) {
+	for (unsigned int i = 0; i <= count; i++) {
 		memmove(d1, d0, len);
 		d0 -= len;
 		d1 -= len;
@@ -1700,7 +1714,7 @@ void TreeNode<key, value>::moveLeft(TreeNode<key, value> * rightNode) {
  */
 template<typename key, typename value>
 void TreeNode<key, value>::updataKey(key k, value v) {
-	int n = 0;
+	unsigned int n = 0;
 	while(n <= count && this->getValue(n) != v) {
 		n++;
 	}
@@ -1710,12 +1724,12 @@ void TreeNode<key, value>::updataKey(key k, value v) {
 	string str = typeid(string).name();
 	if (typeid(key).name() == str) {
 		char * kk = (char*)malloc(keyLen);
-		char * a = k.c_str();
+		const char * a = k.c_str();
 		memcpy(kk, a, k.size());
 		kk[k.size()] = '\0';
 		memcpy(d, kk, keyLen);
 		free(kk);
-		free(a);
+//		free(a);
 	} else {
 		memcpy(d, (char*)&k, keyLen);
 	}
@@ -1725,7 +1739,7 @@ void TreeNode<key, value>::updataKey(key k, value v) {
  */
 template<typename key, typename value>
 void TreeNode<key, value>::updataValue(value v0, value v1) {
-	int index = 0;
+	unsigned int index = 0;
 	while (index <= count && getValue(index) != v0) {
 		index++;
 	}
