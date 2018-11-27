@@ -51,9 +51,7 @@ void testInit() {
 //	remove(tree);
 	cout << "remove OK" << endl;
 
-	tree->test();
-
-//	tree->printTree();
+	tree->printTree();
 
 	delete tree;
 }
@@ -65,8 +63,11 @@ void remove(BPlusTree<string, unsigned long int> * tree) {
 		printf("can't open the file: remove.ts");
 		return;
 	}
+	int i = 1;
 	while (fscanf(removeFile, "%s%lu", key, &value) != EOF) {
+		cout << i << " : " << key << " " << value << endl;
 		tree->remove(string(key), value);
+		i++;
 	}
 
 }
