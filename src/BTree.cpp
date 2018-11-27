@@ -59,7 +59,7 @@ void remove(BPlusTree<string, unsigned long int> * tree) {
 	FILE * removeFile;
 	char key[20];
 	unsigned long int value;
-	if ((removeFile = fopen("remove.ts", "r")) == NULL) {
+	if ((removeFile = fopen("remove2.ts", "r")) == NULL) {
 		printf("can't open the file: remove.ts");
 		return;
 	}
