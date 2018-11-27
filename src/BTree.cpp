@@ -39,7 +39,7 @@ void testCreate() {
 	}
 	cout << "main put OK" << endl;
 	fclose(testFile);
-	tree->printTree();
+//	tree->printTree();
 
 	delete tree;
 }
@@ -48,8 +48,10 @@ void testInit() {
 	//const char * indexFileName, int keyLen, int valueLen, bool create)
 	tree = new BPlusTree<string, unsigned long int>("index.ind", 20, 8, false);
 	printf("init success\n");
-	remove(tree);
+//	remove(tree);
 	cout << "remove OK" << endl;
+
+	tree->test();
 
 //	tree->printTree();
 
