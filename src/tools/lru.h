@@ -35,6 +35,8 @@ public:
 	}
 
 	value_t put(const key_t& key, const value_t& value) {
+//		cout << "lru::put() key = " << key << endl;
+
 		value_t v = 0;
 		auto it = _cache_items_map.find(key);
 		_cache_items_list.push_front(key_value_pair_t(key, value));

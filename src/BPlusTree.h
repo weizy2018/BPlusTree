@@ -313,19 +313,20 @@ void BPlusTree<key, value>::handleDel(TreeNode<key, value> * leafNode) {
 	if (parent->getSelf() == leafNode->getSelf()) {		//只有一个结点
 		return;
 	}
+	TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()
+			->getLruCache()->put(parent->getSelf(), parent);
+	if (t) {
+		delete t;
+	}
 	//leafNode的左兄弟结点
 	TreeNode<key, value> * leftNode = getLeftNode(leafNode, parent);
 	//leafNode的右兄弟结点
 	TreeNode<key, value> * rightNode = getRightNode(leafNode, parent);
 
-//	if (leftNode != nullptr) {
-//		cout << "BPlusTree::handleDel() leftNode data :" << endl;
-//		leftNode->printTreeNode();
-//	}
-//	if (rightNode != nullptr) {
-//		cout << "BPlusTree::handleDel() rightNode data:" << endl;
-//		rightNode->printTreeNode();
-//	}
+	//===============================
+//	cout << "print 1" << endl;
+//	this->printTree();
+
 	//borrowLeft(leftNode, node, parent);
 	if (leftNode != nullptr && leftNode->getCount() > minLeafData) {	//先看能否向左借
 		cout << "BPlusTree::handleDel() borrowLeft" << endl;
@@ -351,6 +352,7 @@ void BPlusTree<key, value>::mergeLeft(TreeNode<key, value> * leftNode, TreeNode<
 	cout << "BPlusTree::mergeLeft start" << endl;
 	//1. 把父结点value为leafNode->self()的项删除
 	parent->delInnerData(leafNode->getSelf());
+	parent->writeBack();
 
 	//2. 合并结点 将leafNode合并到leftNode中
 	leftNode->addRightNodeData(leafNode);
@@ -360,7 +362,15 @@ void BPlusTree<key, value>::mergeLeft(TreeNode<key, value> * leftNode, TreeNode<
 	TreeNode<key, value> * lastNodeParent = this->getParent(lastNode->getKey(0), lastNode->getSelf());
 	cout << "BPlusTree::mergeLeft lastNode->type = " << lastNode->getType();
 	cout << "  self = " << lastNode->getSelf() << endl;
+	cout << "lastNode data:" << endl;
+	lastNode->printTreeNode();
+
+	//========================
+//	cout << "print 2" << endl;
+//	this->printTree();
+
 	if (leafNode->getSelf() != totalBlock - 1) {
+		cout << "BPlusTree::mergeLeft() copy data" << endl;
 
 		char * leafNodeData = leafNode->getData();
 		char * lastNodeData = lastNode->getData();
@@ -371,37 +381,54 @@ void BPlusTree<key, value>::mergeLeft(TreeNode<key, value> * leftNode, TreeNode<
 		leafNode->setCount(lastNode->getCount());
 		leafNode->setType(lastNode->getType());
 
+		leafNode->writeBack();
+
 		//如果最后一个结点是根结点所在的话
 		rootNode = getRootNode();
 		if (rootNode->getSelf() == lastNode->getSelf()) {
 //			rootNode = leafNode;
 			root = leafNode->getSelf();
 		} else {
-			lastNodeParent->updataValue(lastNode->getSelf(), leafNode->getSelf());
+//			cout << "lastNodeParent data(before update):" << endl;
+//			lastNodeParent->printTreeNode();
+//			cout << "print 3" << endl;
+//			this->printTree();
+
 			if (lastNode->getType() == 1) {
+				cout << "BPlusTree::mergeLeft() lastNode->type == 1" << endl;
 				TreeNode<key, value> * lastNodeLeft = this->getLeftNodeAll(lastNode, lastNodeParent);
 				lastNodeLeft->setNext(leafNode->getSelf());
 				lastNodeLeft->writeBack();
-				cout << "BPlusTree::mergeLeft() lastNodeLeft->type = " << lastNodeLeft->getType();
-				cout << "  self = " << lastNode->getSelf() << endl;
-				cout << "lastNodeLeft data:" << endl;
-				lastNodeLeft->printTreeNode();
 			}
+			//这个更新必须放在getLeftNodeAll之后
+			lastNodeParent->updataValue(lastNode->getSelf(), leafNode->getSelf());
+//			cout << "lastNodeParent data(after update):" << endl;
+//			lastNodeParent->printTreeNode();
 
-			TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(leafNode->getSelf(), leafNode);
-			if (t) {
-				delete t;
-			}
-			t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(lastNodeParent->getSelf(), lastNodeParent);
-			if (t) {
-				delete t;
-			}
+			lastNodeParent->writeBack();
+
+//			cout << "print 4" << endl;
+//			this->printTree();
+
+//			TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
+//					->put(leafNode->getSelf(), leafNode);
+//			if (t) {
+//				delete t;
+//			}
+//			t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
+//					->put(lastNodeParent->getSelf(), lastNodeParent);
+//			if (t) {
+//				delete t;
+//			}
+
+//			cout << "print 5" << endl;
+//			this->printTree();
 		}
-		delete lastNode;
+//		delete lastNode;
 		totalBlock -= 1;
 	} else {
+		cout << "else else else else else else else else else" << endl;
 		if (lastNode->getType() == 1) {
-			cout << "leafNode->getSelf == totalBlock - 1" << endl;
 			TreeNode<key, value> * lastNodeLeft = this->getLeftNodeAll(lastNode, lastNodeParent);
 			lastNodeLeft->setNext(-1);
 			lastNodeLeft->writeBack();
@@ -409,11 +436,7 @@ void BPlusTree<key, value>::mergeLeft(TreeNode<key, value> * leftNode, TreeNode<
 		totalBlock -= 1;
 	}
 
-//	TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
-//			->put(lastNodeLeft->getSelf(), lastNodeLeft);
-//	if (t) {
-//		delete t;
-//	}
+
 	//4. 递归对父结点进行该过程。。。
 	int minInnerCount = (int)(treeNodeMaxSize*1.0/2 + 0.5);
 	cout << "BPlusTree::mergeLeft middle" << endl;
@@ -454,7 +477,11 @@ void BPlusTree<key, value>::mergeLeft(TreeNode<key, value> * leftNode, TreeNode<
 			bool merge = false;
 			TreeNode<key, value> * node = parent;
 			parent = this->getParent(parent->getKey(0), parent->getSelf());
-
+			TreeNode<key, value> * tt = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
+										->put(parent->getSelf(), parent);
+			if (tt) {
+				delete tt;
+			}
 			leftNode = getLeftNode(node, parent);
 			TreeNode<key, value> * rightNode = getRightNode(node, parent);
 			if (leftNode != nullptr && leftNode->getCount() > minInnerCount) {
@@ -465,22 +492,25 @@ void BPlusTree<key, value>::mergeLeft(TreeNode<key, value> * leftNode, TreeNode<
 				TreeNode<key, value> * nextNode = getTreeNode(node->getValue(1));
 				key k = nextNode->getKey(0);
 				node->updataKey(k, nextNode->getSelf());
+				node->writeBack();
 			} else if (rightNode != nullptr && rightNode->getCount() > minInnerCount) {
 				//从右边借一项
 				this->borrowRight(rightNode, node, parent);
 				TreeNode<key, value> * nextNode = getTreeNode(node->getValue(node->getCount()));
 				key k = nextNode->getKey(0);
 				node->updataKey(k, nextNode->getSelf());
-
+				node->writeBack();
 			} else if (leftNode != nullptr) {
 				//向左合并
 				//获取值为v的k
 				key k = parent->delInnerData(node->getSelf());
+				parent->writeBack();
 				leftNode->addRightNodeData_Inner(node, k);
 				merge = true;
 			} else {
 				//向右合并
 				key k = parent->delInnerData(node->getSelf());
+				parent->writeBack();
 				rightNode->addLeftNodeData_Inner(node, k);
 				merge = true;
 			}
@@ -495,6 +525,12 @@ void BPlusTree<key, value>::mergeLeft(TreeNode<key, value> * leftNode, TreeNode<
 				char * nodeData = node->getData();
 				char * lastNodeData = lastNode->getData();
 				memcpy(nodeData, lastNodeData, TREE_NODE_DATA_SIZE);
+
+				TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
+						->put(node->getSelf(), node);
+				if (t) {
+					delete t;
+				}
 				//重新设置node的parent
 				rootNode = getRootNode();
 				if (rootNode->getSelf() == lastNode->getSelf()) {
@@ -502,24 +538,21 @@ void BPlusTree<key, value>::mergeLeft(TreeNode<key, value> * leftNode, TreeNode<
 					root = node->getSelf();
 				} else {
 					TreeNode<key, value> * lastNodeParent = this->getParent(lastNode->getKey(0), lastNode->getSelf());
-					lastNodeParent->updataValue(lastNode->getSelf(), node->getSelf());
+
 					if (lastNode->getType() == 1) {
 						TreeNode<key, value> * lastNodeLeft = this->getLeftNodeAll(lastNode, lastNodeParent);
-						cout << "BPlusTree::mergeLeft() lastNodeLeft->next (before setting) = " << lastNodeLeft->getNext() << endl;
-						cout << "lastNodeLeft data :" << endl;
-						lastNodeLeft->printTreeNode();
-
 						lastNodeLeft->setNext(node->getSelf());
-						cout << "BPlusTree::mergeLeft() lastNodeLeft->self = " << lastNodeLeft->getSelf() << endl;
-						cout << "BPlusTree::mergeLeft() lastNodeLeft->next (after setting) = " << lastNodeLeft->getNext() << endl;
-
+						lastNodeLeft->writeBack();
 					}
-					TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(node->getSelf(), node);
+					lastNodeParent->updataValue(lastNode->getSelf(), node->getSelf());
+					lastNodeParent->writeBack();
+					t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
+							->put(lastNodeParent->getSelf(), lastNodeParent);
 					if (t) {
 						delete t;
 					}
 				}
-				delete lastNode;
+//				delete lastNode;
 				totalBlock--;
 			}
 		}
@@ -534,6 +567,7 @@ void BPlusTree<key, value>::mergeRight(TreeNode<key, value> * rightNode, TreeNod
 	cout << "BPlusTree::mergeRight start" << endl;
 	//1. 把父结点value为leafNode->self()的项删除
 	parent->delInnerData(leafNode->getSelf());
+	parent->writeBack();
 
 	//2. 合并结点 将leafNode合并到rightNode中
 	rightNode->addLeftNodeData(leafNode);
@@ -544,17 +578,16 @@ void BPlusTree<key, value>::mergeRight(TreeNode<key, value> * rightNode, TreeNod
 
 	//父结点需要改变	将 v0 改成 v1
 	parent->updataValue(rightNode->getSelf(), leafNode->getSelf());
-
+	parent->writeBack();
 	//将leafNode重新赋值
 	leafNode = rightNode;
-
 
 	//3. 把文件中的最后一项用来填补被合并的结点，并将其父结点关于该项的value改为当前值，totalBlock -= 1
 	TreeNode<key, value> * lastNode = getLastTreeNode(totalBlock);
 	TreeNode<key, value> * lastNodeParent = this->getParent(lastNode->getKey(0), lastNode->getSelf());
-	TreeNode<key, value> * lastNodeLeft = this->getLeftNodeAll(lastNode, lastNodeParent);
-	cout << "BPlusTree::mergeRight() lastNodeLeft data :" << endl;
-	lastNodeLeft->printTreeNode();
+
+//	cout << "BPlusTree::mergeRight() lastNodeLeft data :" << endl;
+//	lastNodeLeft->printTreeNode();
 
 	if (leafNode->getSelf() != totalBlock - 1) {
 		char * leafNodeData = leafNode->getData();
@@ -572,29 +605,44 @@ void BPlusTree<key, value>::mergeRight(TreeNode<key, value> * rightNode, TreeNod
 //			rootNode = leafNode;
 			root = leafNode->getSelf();
 		} else {
+			if (lastNode->getType() == 1) {
+				TreeNode<key, value> * lastNodeLeft = this->getLeftNodeAll(lastNode, lastNodeParent);
+				lastNodeLeft->setNext(leafNode->getSelf());
+				lastNodeLeft->writeBack();
+			}
+			//这个必须放在getLeftNodeAll之后
 			lastNodeParent->updataValue(lastNode->getSelf(), leafNode->getSelf());
-			lastNodeLeft->setNext(leafNode->getSelf());
-			TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(leafNode->getSelf(), leafNode);
+			lastNodeParent->writeBack();
+
+			leafNode->writeBack();
+			TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()
+					->getLruCache()->put(leafNode->getSelf(), leafNode);
 			if (t) {
 				delete t;
 			}
-			t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(lastNodeParent->getSelf(), lastNodeParent);
+			t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
+					->put(lastNodeParent->getSelf(), lastNodeParent);
 			if (t) {
 				delete t;
 			}
 		}
-		delete lastNode;
+//		delete lastNode;
 		totalBlock -= 1;
 	} else {
-		lastNodeLeft->setNext(-1);
+		//这里不用了，但是上面的mergeLeft还是要用的
+//		if (lastNode->getType() == 1) {
+//			TreeNode<key, value> * lastNodeLeft = this->getLeftNodeAll(lastNode, lastNodeParent);
+//			lastNodeLeft->setNext(-1);
+//			lastNodeLeft->writeBack();
+//		}
 		totalBlock -= 1;
 	}
-	lastNodeLeft->writeBack();
-	TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
-			->put(lastNodeLeft->getSelf(), lastNodeLeft);
-	if (t) {
-		delete t;
-	}
+//	lastNodeLeft->writeBack();
+//	TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
+//			->put(lastNodeLeft->getSelf(), lastNodeLeft);
+//	if (t) {
+//		delete t;
+//	}
 	//4. 递归进行。。。
 	int minInnerCount = (int)(treeNodeMaxSize*1.0/2 + 0.5);
 	while (parent->getCount() < minInnerCount) {
@@ -611,11 +659,13 @@ void BPlusTree<key, value>::mergeRight(TreeNode<key, value> * rightNode, TreeNod
 
 					parent->setCount(lastNode->getCount());
 					parent->setChange(true);
-					TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(parent->getSelf(), parent);
+					parent->writeBack();
+					TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()
+							->getLruCache()->put(parent->getSelf(), parent);
 					if (t) {
 						delete t;
 					}
-					delete lastNode;
+//					delete lastNode;
 					//重置rootNode
 					root = rightNode->getSelf();
 					totalBlock -= 1;
@@ -641,20 +691,26 @@ void BPlusTree<key, value>::mergeRight(TreeNode<key, value> * rightNode, TreeNod
 				TreeNode<key, value> * nextNode = getTreeNode(node->getValue(1));
 				key k = nextNode->getKey(0);
 				node->updataKey(k, nextNode->getSelf());
+				node->writeBack();
 			} else if (rightNode != nullptr && rightNode->getCount() > minInnerCount) {
 				//从右边借一项
 				this->borrowRight(rightNode, node, parent);
 				TreeNode<key, value> * nextNode = getTreeNode(node->getValue(node->getCount()));
 				key k = nextNode->getKey(0);
 				node->updataKey(k, nextNode->getSelf());
+				node->writeBack();
 			} else if (leftNode != nullptr) {
 				//向左合并
 				key k = parent->delInnerData(node->getSelf());
+				parent->writeBack();
 				leftNode->addRightNodeData_Inner(node, k);
+				leftNode->writeBack();
 				merge = true;
 			} else {
 				key k = parent->delInnerData(node->getSelf());
+				parent->writeBack();
 				rightNode->addLeftNodeData_Inner(node, k);
+				rightNode->writeBack();
 				merge = true;
 			}
 			if (merge) {
@@ -675,21 +731,23 @@ void BPlusTree<key, value>::mergeRight(TreeNode<key, value> * rightNode, TreeNod
 						root = node->getSelf();
 					} else {
 						TreeNode<key, value> * lastNodeParent = this->getParent(lastNode->getKey(0), lastNode->getSelf());
-						lastNodeParent->updataValue(lastNode->getSelf(), node->getSelf());
+
 						if (lastNode->getType() == 1) {
 							TreeNode<key, value> * lastNodeLeft = this->getLeftNodeAll(lastNode, lastNodeParent);
 							lastNodeLeft->setNext(node->getSelf());
+							lastNodeLeft->writeBack();
 						}
+						lastNodeParent->updataValue(lastNode->getSelf(), node->getSelf());
+						lastNodeParent->writeBack();
 						TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()
 								->getLruCache()->put(node->getSelf(), node);
 						if (t) {
 							delete t;
 						}
 					}
-					delete lastNode;
+//					delete lastNode;
 					totalBlock--;
 				}
-
 			}
 		}
 	}
@@ -717,6 +775,11 @@ TreeNode<key, value> * BPlusTree<key, value>::getLastTreeNode(unsigned long int 
 		fclose(indexFile);
 		//const char * block, int keyLen, int valueLen, const char * indexFileName
 		lastNode = new TreeNode<key, value>(block, keyLen, valueLen, indexFileName);
+		TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
+				->put(lastNode->getSelf(), lastNode);
+		if (t) {
+			delete t;
+		}
 	}
 
 	return lastNode;
@@ -738,21 +801,29 @@ TreeNode<key, value> * BPlusTree<key, value>::getTreeNode(unsigned long int self
 		fclose(indexFile);
 
 		node = new TreeNode<key, value>(block, keyLen, valueLen, indexFileName);
+		TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()
+				->put(node->getSelf(), node);
+		if (t) {
+			delete t;
+		}
 	}
 	return node;
 }
 
 template<typename key, typename value>
 void BPlusTree<key, value>::borrowLeft(TreeNode<key, value> * leftNode, TreeNode<key, value> * node, TreeNode<key, value> * parent){
-	cout << "BPlusTree::borrowLeft() start" << endl;
+//	cout << "BPlusTree::borrowLeft() start" << endl;
 	//node整体右窜一位,并将leftNode中的数据的最后一项加到node中
 	node->moveRight(leftNode);
 	//修改parent中的索引
 	//1. 先获取移动后的leafNode的第一项的索引
 	key k = node->getKey(0);
 	//2. 将父结点value值为node->getSelf()的项的索引置为k
+//	cout << "node->self = " << node->getSelf() << endl;
+//	cout << "parent before update :" << endl;
+//	parent->printTreeNode();
 	parent->updataKey(k, node->getSelf());
-	cout << "BPlusTree::borrowLeft() end" << endl;
+	parent->writeBack();
 }
 template<typename key, typename value>
 void BPlusTree<key, value>::borrowRight(TreeNode<key, value> * rightNode, TreeNode<key, value> * node, TreeNode<key, value> * parent) {
@@ -765,7 +836,7 @@ void BPlusTree<key, value>::borrowRight(TreeNode<key, value> * rightNode, TreeNo
 //	parent->printTreeNode();
 	//2. 将父结点value值为rightNode->self(0的项的索引置为k
 	parent->updataKey(k, rightNode->getSelf());
-
+	parent->writeBack();
 //	cout << "BPlusTree::borrowRight() parent data after update :" << endl;
 //	parent->printTreeNode();
 }
@@ -795,6 +866,9 @@ TreeNode<key, value> * BPlusTree<key, value>::getLeftNodeAll(TreeNode<key, value
 			value nextAddr = leftNode->getValue(leftNode->getCount());		//下标从0开始的
 			try {
 				leftNode = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->get(nextAddr);
+//				cout << "BPlusTree::getLeftNodeAll() try" << endl;
+//				cout << "leftNode->self = " << leftNode->getSelf() << " nextAddr = " << nextAddr << endl;
+
 			} catch (exception &e) {
 				char * block = (char*)malloc(BLOCK_SIZE);
 				fseek(indexFile, nextAddr*BLOCK_SIZE + OFFSET_LENGTH, SEEK_SET);
@@ -1020,6 +1094,7 @@ void BPlusTree<key, value>::split(TreeNode<key, value> * leafNode) {
 
 template<typename key, typename value>
 TreeNode<key, value> * BPlusTree<key, value>::getParent(key k, value childId) {
+	cout << "BPlusTree::getParent() k = " << k << " childId = " << childId << endl;
 	rootNode = getRootNode();
 	if (rootNode->getSelf() == childId) {	//只有根结点
 		cout << "BPlusTree::getParent() only root node" << endl;
@@ -1034,7 +1109,7 @@ TreeNode<key, value> * BPlusTree<key, value>::getParent(key k, value childId) {
 	TreeNode<key, value> * childNode = nullptr;
 	unsigned long int nextAddr = node->getNextChild(k);
 	while (nextAddr != childId) {
-		cout << "BPlusTree::getParent() 3 nextAddr = " << nextAddr << " childId = " << childId << endl;
+//		cout << "BPlusTree::getParent() 3 nextAddr = " << nextAddr << " childId = " << childId << endl;
 //		node->printTreeNode();
 		try {
 			childNode = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->get(nextAddr);
@@ -1188,10 +1263,15 @@ void BPlusTree<key, value>::printTree() {
 			node = new TreeNode<key, value>(block, keyLen, valueLen, indexFileName);
 			TreeNode<key, value> * t = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->put(nextAddr, node);
 			if (t) {
+				cout << "BPlusTree::printTree() delete" << endl;
 				delete t;
+				cout << "BPlusTree::printTree() delete 2" << endl;
 			}
 			free(block);
 		}
+//		cout << "BPlusTree::printTree() node data:" << endl;
+//		node->printTreeNode();
+		cout << "BPlusTree::printTree() before getParent()" << endl;
 		parent = getParent(node->getKey(0), node->getSelf());
 		cout << "leafNode->self = " << node->getSelf() << " parent = " << parent->getSelf() << endl;
 		node->printTreeNode();
@@ -1220,12 +1300,12 @@ void BPlusTree<key, value>::test(unsigned long int self) {
 	parent = this->getParent(node->getKey(0), node->getSelf());
 	leftNode = this->getLeftNodeAll(node, parent);
 
-	cout << "leftNode type = " << leftNode->getType() << endl;
+	cout << "leftNode self = " << leftNode->getSelf() << endl;
 	cout << "leftNode data:" << endl;
 	leftNode->printTreeNode();
 
 	delete node;
-	delete leftNode;
+//	delete leftNode;
 	fclose(indexFile);
 }
 
@@ -1618,7 +1698,11 @@ void TreeNode<key,value>::parsed(const char * block) {
 
 template<typename key, typename value>
 void TreeNode<key,value>::writeBack() {
-	cout << "write back" << endl;
+//	cout << "write back" << endl;
+//	cout << "type = " << this->type << endl;
+//	cout << "self = " << this->self << endl;
+//	cout << "count = " << this->count << endl;
+
 	char * block = (char*)malloc(BLOCK_SIZE);
 	char * b = block;
 	//self

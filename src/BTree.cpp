@@ -48,21 +48,21 @@ void testInit() {
 	//const char * indexFileName, int keyLen, int valueLen, bool create)
 	tree = new BPlusTree<string, unsigned long int>("index.ind", 20, 8, false);
 	printf("init success\n");
-//	remove(tree);
-//	cout << "remove OK" << endl;
-//	int a;
-//	cout << "input a:";
-//	cin >> a;
-//	if (a == 1) {
-//		tree->printTree();
-//	}
-	//leafNode->self = 872 parent = 939
-	unsigned long int self = 1;
-	while (self != 0) {
-		cout << "input self : ";
-		cin >> self;
-		tree->test(self);
+	remove(tree);
+	cout << "remove OK" << endl;
+	int a;
+	cout << "input a:";
+	cin >> a;
+	if (a == 1) {
+		tree->printTree();
 	}
+	//leafNode->self = 872 parent = 939
+//	unsigned long int self = 1;
+//	while (self != 0) {
+//		cout << "input self : ";
+//		cin >> self;
+//		tree->test(self);
+//	}
 
 	delete tree;
 }
