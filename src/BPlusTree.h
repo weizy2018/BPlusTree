@@ -1178,14 +1178,17 @@ value BPlusTree<key, value>::get(key k) {
 	rootNode = getRootNode();
 	TreeNode<key, value> * node = rootNode;
 	TreeNode<key, value> * childNode = nullptr;
+
 	//查找关键词在那个子节点
 	while (node->getType() != 1) {
 		unsigned long int nextAddr = node->getNextChild(k);
+//		cout << "BPlusTree::get() nextAddr = " << nextAddr << endl;
 
 		try {	//先尝试从缓冲区获取
 			childNode = LRUCacheIndex<key, value>::getLruInst()->getLruCache()->get(nextAddr);
 		} catch (exception & e) {
 			char * child = (char*)malloc(BLOCK_SIZE);
+			fseek(indexFile, nextAddr*BLOCK_SIZE + OFFSET_LENGTH, SEEK_SET);
 			fread(child, BLOCK_SIZE, 1, indexFile);
 			childNode = new TreeNode<key, value>(child, keyLen, valueLen, indexFileName);
 			free(child);

@@ -14,13 +14,18 @@ using namespace std;
 
 void testCreate();
 void testInit();
+void findTest();
 void remove(BPlusTree<string, unsigned long int> * tree);
 
 int main() {
 	cout << "!!!Hello World!!!" << endl; // prints !!!Hello World!!!
-	testInit();
+//	testInit();
 //	testCreate();
+	findTest();
 	return 0;
+}
+void menu() {
+
 }
 void testCreate() {
 	BPlusTree<string, unsigned long int> * tree;
@@ -43,12 +48,29 @@ void testCreate() {
 
 	delete tree;
 }
+void findTest() {
+	BPlusTree<string, unsigned long int> * tree;
+	tree = new BPlusTree<string, unsigned long int>("index.ind", 20, 8, false);
+	printf("init success\n");
+	string a("abc");
+	while(a != "a") {
+		cout << "input a key :";
+		cin >> a;
+		try {
+			unsigned long int value = tree->get(a);
+			cout << "value = " << value << endl;
+		} catch (exception &e) {
+			e.what();
+		}
+	}
+	delete tree;
+}
 void testInit() {
 	BPlusTree<string, unsigned long int> * tree;
 	//const char * indexFileName, int keyLen, int valueLen, bool create)
 	tree = new BPlusTree<string, unsigned long int>("index.ind", 20, 8, false);
 	printf("init success\n");
-	remove(tree);
+//	remove(tree);
 	cout << "remove OK" << endl;
 	int a;
 	cout << "input a:";
